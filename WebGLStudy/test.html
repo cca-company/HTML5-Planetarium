@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>planetarium</title>
+		<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+		<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+		<script type="text/javascript">
+			var canvas;
+			var gl;
+			var shaderProgram;
+			var pMatrix = mat4.create();
+			var mvMatrix = mat4.create();
+			var verticesBuffer;
+			var vertices2Buffer;
+			var mvMatrixStack = [];
+
+			var rotX = 0,rotY = 0,rotZ = 0;
+
+			function glStart(){
+		    	canvas = $("#glcanvas");
+
+				initGL(canvas);
+
+				if(gl){
+					initShader();
+					initBuffer();
+
+        			gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+					gl.clearColor(0.5, 0.5, 0.5, 1.0);
+        			gl.enable(gl.DEPTH_TEST);
+
+        			setInterval(drawScene, 17);
+				}
+			}
+
+		    function initGL(canvas) {
+	            gl = canvas[0].getContext("webgl") || canvas[0].getContext("experimental-webgl");
+	            gl.viewportWidth = canvas.width();
+	            gl.viewportHeight = canvas.height();
+
+		        if (!gl) {
+		            alert("webGL을 지원하지 않는 브라우저입니");
+		        }
+		    }
+
+		    function initShader(){
+		    	var fragmentShader = getShader(gl, "shader-fs");
+		    	var vertexShader = getShader(gl, "shader-vs");
+
+		 		shaderProgram = gl.createProgram();
+
+		        gl.attachShader(shaderProgram, vertexShader);
+		        gl.attachShader(shaderProgram, fragmentShader);
+
+		        gl.linkProgram(shaderProgram);
+		        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+		            alert("Could not initialise shaders");
+		        }
+
+		        gl.useProgram(shaderProgram);
+
+		        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+		        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+		        shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
+		        gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
+		        
+
+		        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+		        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+		    }
+
+		    function getShader(gl, id){
+		        var shaderScript = $("#"+id);
+		        if (!shaderScript) {
+		            return null;
+		        }
+		        
+		        var source = shaderScript.text();
+
+		        if (shaderScript.attr("type") == "x-shader/x-fragment") {
+		            shader = gl.createShader(gl.FRAGMENT_SHADER);
+		            console.log("fragment shader loaded!")
+		        } else if (shaderScript.attr("type") == "x-shader/x-vertex") {
+		            shader = gl.createShader(gl.VERTEX_SHADER);
+		            console.log("vertex shader loaded!")
+		        } else {
+		            return null;
+		        }
+
+		        gl.shaderSource(shader, source);
+		        gl.compileShader(shader);
+
+		        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+		            alert(gl.getShaderInfoLog(shader));
+		            return null;
+		        }
+		        return shader;
+		    }
+
+		    function initBuffer(){
+		    	verticesBuffer = gl.createBuffer();
+		    	gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
+
+		    	var vertices = [];
+
+		    	var range = 5;
+		    	var degree = 5;
+		    	var numItem = 360/degree;
+		    	for(var i = 0; i < 24; ++i){
+			    	for(var j = 0; j <= numItem; ++j){
+			    		var h = range * Math.cos(degToRad(degree * j + 90));
+			    		var x = h * Math.cos(degToRad(15 * i));
+			    		var y = range * Math.sin(degToRad(degree * j + 90));
+			    		var z = h * Math.sin(degToRad(15 * i));
+			    		vertices = vertices.concat([x,y,z]);
+			    	}
+		    	}
+
+		    	console.log(vertices);
+
+		    	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		    	verticesBuffer.itemSize = 3;
+		    	verticesBuffer.numItems = numItem * 24;
+
+
+		    	vertices2Buffer = gl.createBuffer();
+		    	gl.bindBuffer(gl.ARRAY_BUFFER, vertices2Buffer);
+
+		    	vertices = [];
+
+		    	for(var i = -12; i < 12; ++i){
+			    	for(var j = 0; j <= numItem; ++j){
+			    		var h = range * Math.cos(degToRad(15*i));
+			    		var x = h * Math.cos(degToRad(degree * j));
+			    		var y = range * Math.sin(degToRad(15*i));;
+			    		var z = h * Math.sin(degToRad(degree * j));
+
+			    		vertices = vertices.concat([x,y,z]);
+			    	}
+		    	}
+
+		    	console.log(vertices);
+
+		    	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		    	vertices2Buffer.itemSize = 3;
+		    	vertices2Buffer.numItems = numItem * 24;
+		    }
+
+		    function drawScene(){
+		    	update();
+        		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        		mat4.perspective(45, gl.viewportWidth/gl.viewportHeight, 0.1, 200.0, pMatrix);
+
+        		/*
+        		구현방법 2 : 버퍼에 미리 그린 구를 넣어두고 꺼내서 그린다
+        		*/
+        		mat4.identity(mvMatrix);
+        		mat4.translate(mvMatrix, [0.0, 0.0, -10.0]);
+        		mat4.rotate(mvMatrix, degToRad(rotX), [1.0, 0.0, 0.0]);
+        		mat4.rotate(mvMatrix, degToRad(rotZ), [0.0, 0.0, 1.0]);
+
+        		gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
+		        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, verticesBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+		        setMatrixUniforms();
+		        gl.drawArrays(gl.LINE_STRIP, 0, verticesBuffer.numItems);
+
+        		gl.bindBuffer(gl.ARRAY_BUFFER, vertices2Buffer);
+		        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, vertices2Buffer.itemSize, gl.FLOAT, false, 0, 0);
+
+		        setMatrixUniforms();
+		        gl.drawArrays(gl.LINE_STRIP, 0, vertices2Buffer.numItems);
+
+        		/*
+        		구현방법 1 : 원 하나를 미리 그려놓고 그걸로 지지고 볶는다
+        		문제 : 매 프레임마다 계산비용이 너무 큼, 각 적경과 적위의 좌표를 알기 어려움
+	        	mat4.rotate(mvMatrix, degToRad(60), [1.0, 1.0, 0.0]);
+
+        		mvPushMatrix();
+        		for(var i = 0; i < 24; ++i){
+
+	        		mat4.rotate(mvMatrix, degToRad(15), [0.0, 1.0, 0.0]);
+
+	        		gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
+			        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, verticesBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+			        setMatrixUniforms();
+			        gl.drawArrays(gl.LINE_LOOP, 0, verticesBuffer.numItems);
+			    }
+			    mvPopMatrix();
+
+
+        		mvPushMatrix();
+	        	mat4.rotate(mvMatrix, degToRad(90), [1.0, 0.0, 0.0]);
+
+        		for(var i = -12; i < 12; ++i){
+        			mvPushMatrix();
+
+	        		mat4.translate(mvMatrix, [0.0, 0.0, Math.sin(degToRad(15*i)) * 3]);
+
+	        		mat4.scale(mvMatrix, [Math.cos(degToRad(15*i)),Math.cos(degToRad(15*i)),1.0])
+
+	        		gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
+			        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, verticesBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+			        setMatrixUniforms();
+			        gl.drawArrays(gl.LINE_LOOP, 0, verticesBuffer.numItems);
+
+			   	 	mvPopMatrix();
+			    }
+
+			   	mvPopMatrix();
+			   	*/
+		    }
+
+		    function setMatrixUniforms() {
+		        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+		        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+		    }
+
+		    function degToRad(degree){
+		    	return degree * Math.PI / 180
+		    }
+
+		    function mvPushMatrix() {
+		        var copy = mat4.create();
+		        mat4.set(mvMatrix, copy);
+		        mvMatrixStack.push(copy);
+		    }
+
+		    function mvPopMatrix() {
+		        if (mvMatrixStack.length == 0) {
+		            throw "Invalid popMatrix!";
+		        }
+		        mvMatrix = mvMatrixStack.pop();
+		    }
+
+		    function update(){
+		    	rotX = (rotX >= 360)? 0 : rotX + 0.5 ;
+		    	rotZ = (rotZ >= 360)? 0 : rotZ + 0.5 ;
+		    	//rotX = (rotX > 360)? rotX + 1 : 0;
+		    }
+
+		</script>
+
+		<script id="shader-fs" type="x-shader/x-fragment">
+		    precision mediump float;
+
+		    varying vec4 vColor;
+
+		    void main(void) {
+		        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+		    }
+		</script>
+
+		<script id="shader-vs" type="x-shader/x-vertex">
+		    attribute vec3 aVertexPosition;
+		    attribute vec4 aVertexColor;
+
+		    uniform mat4 uMVMatrix;
+		    uniform mat4 uPMatrix;
+
+		    varying vec4 vColor;
+
+		    void main(void) {
+		        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		        //vColor = aVertexColor;
+		    }
+		</script>
+	</head>
+	<body onload="glStart()">
+		<canvas id="glcanvas" width="1000" height="700"></canvas>
+	</body>
+</html>
