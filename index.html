@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Planetarium</title>
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+	<script type="text/javascript" src="asset/glMatrix-0.9.5.min.js"></script>
+	<script type="text/javascript" src="asset/planetarium.js"></script>
+	<link rel="stylesheet" type="text/css" media="screen" href="asset/common.css" />
+
+	<!--TODO: 쉐이더 스크립트 개별 파일로 빼고 로딩하기-->
+	<script id="shader-fs" type="x-shader/x-fragment">
+	    precision mediump float;
+
+	    varying vec4 vColor;
+
+	    void main(void) {
+	        gl_FragColor = vColor;
+	    }
+	</script>
+
+	<script id="shader-vs" type="x-shader/x-vertex">
+	    attribute vec3 aVertexPosition;
+	    attribute vec4 aVertexColor;
+
+	    uniform mat4 uMVMatrix;
+	    uniform mat4 uPMatrix;
+
+	    varying vec4 vColor;
+
+	    void main(void) {
+	        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+	        vColor = aVertexColor;
+	    }
+	</script>
+</head>
+<body onload="Planetarium.init()">
+	<canvas id="glCanvas" width="1280" height="768">
+	</canvas>
+</body>
+</html>

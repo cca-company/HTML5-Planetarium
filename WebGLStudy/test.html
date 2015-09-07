@@ -12,6 +12,7 @@
 			var mvMatrix = mat4.create();
 			var verticesBuffer;
 			var vertices2Buffer;
+			var vertices2Index = [];
 			var mvMatrixStack = [];
 
 			var rotX = 0,rotY = 0,rotZ = 0;
@@ -104,8 +105,8 @@
 
 		    	var vertices = [];
 
-		    	var range = 5;
-		    	var degree = 5;
+		    	var range = 10;
+		    	var degree = 1;
 		    	var numItem = 360/degree;
 		    	for(var i = 0; i < 24; ++i){
 			    	for(var j = 0; j <= numItem; ++j){
@@ -124,27 +125,43 @@
 		    	verticesBuffer.numItems = numItem * 24;
 
 
-		    	vertices2Buffer = gl.createBuffer();
-		    	gl.bindBuffer(gl.ARRAY_BUFFER, vertices2Buffer);
 
 		    	vertices = [];
+		    	var index = [];
+		    	var indexNum = 0;
 
 		    	for(var i = -12; i < 12; ++i){
-			    	for(var j = 0; j <= numItem; ++j){
+		    		index[12+i] = [];
+			    	for(var j = 0; j < numItem; ++j){
 			    		var h = range * Math.cos(degToRad(15*i));
 			    		var x = h * Math.cos(degToRad(degree * j));
 			    		var y = range * Math.sin(degToRad(15*i));;
 			    		var z = h * Math.sin(degToRad(degree * j));
 
 			    		vertices = vertices.concat([x,y,z]);
+			    		index[12+i] = index[12+i].concat(indexNum++);
 			    	}
 		    	}
 
 		    	console.log(vertices);
 
+		    	vertices2Buffer = gl.createBuffer();
+		    	gl.bindBuffer(gl.ARRAY_BUFFER, vertices2Buffer);
 		    	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 		    	vertices2Buffer.itemSize = 3;
 		    	vertices2Buffer.numItems = numItem * 24;
+
+
+		    	for(var i = 0; i < 24; ++i){
+			    	vertices2Index[i] = gl.createBuffer();
+			    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertices2Index[i]);
+		    		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index[i]), gl.STATIC_DRAW);
+
+			    	vertices2Index[i].itemSize = 1;
+			    	vertices2Index[i].numItems = numItem;
+		    	}
+
+
 		    }
 
 		    function drawScene(){
@@ -160,18 +177,21 @@
         		mat4.translate(mvMatrix, [0.0, 0.0, -10.0]);
         		mat4.rotate(mvMatrix, degToRad(rotX), [1.0, 0.0, 0.0]);
         		mat4.rotate(mvMatrix, degToRad(rotZ), [0.0, 0.0, 1.0]);
+		        setMatrixUniforms();
 
         		gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
 		        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, verticesBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-		        setMatrixUniforms();
 		        gl.drawArrays(gl.LINE_STRIP, 0, verticesBuffer.numItems);
 
         		gl.bindBuffer(gl.ARRAY_BUFFER, vertices2Buffer);
 		        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, vertices2Buffer.itemSize, gl.FLOAT, false, 0, 0);
 
-		        setMatrixUniforms();
-		        gl.drawArrays(gl.LINE_STRIP, 0, vertices2Buffer.numItems);
+		    	for(var i = 0; i < 24; ++i){
+	        		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vertices2Index[i]);
+			        gl.drawElements(gl.LINE_LOOP, vertices2Index[i].numItems, gl.UNSIGNED_SHORT, 0);		        
+		    	}
+		        //gl.drawArrays(gl.LINE_LOOP, 0, vertices2Index.numItems);
 
         		/*
         		구현방법 1 : 원 하나를 미리 그려놓고 그걸로 지지고 볶는다
