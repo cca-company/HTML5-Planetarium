@@ -11,6 +11,7 @@ var WebGL = {
     rotZ : 0,
     buffer : null,
     asterisms : [],
+    data : null,
 	start : function(){
     	this.canvas = $("#glCanvas");
 
@@ -30,49 +31,92 @@ var WebGL = {
 	},
 	setup : function(){
         // 임시 데이터
-        var data = [
+        this.data = [
             {
                 "name" : "Ursa Minor",
                 "stars" :[
-                    { "name" : "Polaris", "pos" : [151/4,89.15], "magnitude" : 1},  // 항성명 : [적경, 적위, 밝기]
-                    { "name" : "Kochab", "pos" : [890/4,74.09], "magnitude" : 2},
-                    { "name" : "Ursa Minor - Gamma", "pos" : [920/4,71.50], "magnitude" : 3},
-                    { "name" : "Ursa Minor - Delta", "pos" : [1052/4,86.35], "magnitude" : 4},
-                    { "name" : "Ursa Minor - Epsilon", "pos" : [1005/4,82.02], "magnitude" : 4},
-                    { "name" : "Ursa Minor - Zeta", "pos" : [944/4,77.47], "magnitude" : 4},
-                    { "name" : "Ursa Minor - Eta", "pos" : [977/4,75.45], "magnitude" : 5}
+                    { "name" : "Polaris", "pos" : ["02:31",89.15], "magnitude" : 1},  // 항성명 : [적경, 적위, 밝기]
+                    { "name" : "Kochab", "pos" : ["14:50",74.09], "magnitude" : 2},
+                    { "name" : "Ursa Minor - Gamma", "pos" : ["15:20",71.50], "magnitude" : 3},
+                    { "name" : "Ursa Minor - Delta", "pos" : ["17:32",86.35], "magnitude" : 4},
+                    { "name" : "Ursa Minor - Epsilon", "pos" : ["16:45",82.02], "magnitude" : 4},
+                    { "name" : "Ursa Minor - Zeta", "pos" : ["15:44",77.47], "magnitude" : 4},
+                    { "name" : "Ursa Minor - Eta", "pos" : ["16:17",75.45], "magnitude" : 5}
                 ],
-                "line" : [[2,6],[6,5],[1,2],[1,5],[5,4],[3,4],[3,0]],
+                "line" : [[2,6],[6,5],[1,2],[1,5],[5,4],[3,4],[3,0]]
+            },
+            {
+                "name" : "Ursa Major",
+                "stars" : [
+                    { "name" : "Dubhe", "pos" : ["11:03",61.45], "magnitude" : 1},
+                    { "name" : "Merak", "pos" : ["11:01",56.22], "magnitude" : 2},
+                    { "name" : "Phecda", "pos" : ["11:53",53.41], "magnitude" : 2},
+                    { "name" : "Megrez", "pos" : ["12:15",57.01], "magnitude" : 3},
+                    { "name" : "Alioth", "pos" : ["12:54",55.57], "magnitude" : 1},
+                    { "name" : "Mizar", "pos" : ["13:23",54.55], "magnitude" : 2},
+                    { "name" : "Alkaid", "pos" : ["13:47",49.18], "magnitude" : 3},
+                    { "name" : "Ursa Major - Theta", "pos" : ["09:32",51.40], "magnitude" : 1},
+                    { "name" : "Ursa Major - Iota", "pos" : ["08:59",48.02], "magnitude" : 3},
+                    { "name" : "Ursa Major - Kappa", "pos" : ["09:03",47.09], "magnitude" : 3},
+                    { "name" : "Ursa Major - Lambda", "pos" : ["10:17",42.54], "magnitude" : 3},
+                    { "name" : "Ursa Major - Mu", "pos" : ["10:22",41.29], "magnitude" : 3},
+                    { "name" : "Ursa Major - Nu", "pos" : ["11:18",33.05], "magnitude" : 3},
+                    { "name" : "Ursa Major - Xi", "pos" : ["11:18",31.31], "magnitude" : 3},
+                    { "name" : "Ursa Major - Omicron", "pos" : ["08:30",60.43], "magnitude" : 3},
+                    { "name" : "Ursa Major - Pi", "pos" : ["08:39",65.01], "magnitude" : 5},
+                    { "name" : "Ursa Major - Rho", "pos" : ["09:02",67.37], "magnitude" : 4},
+                    { "name" : "Ursa Major - Sigma", "pos" : ["09:10",66.52], "magnitude" : 5},
+                    { "name" : "Ursa Major - Tau", "pos" : ["09:10",63.30], "magnitude" : 4},
+                    { "name" : "Ursa Major - Upsilon", "pos" : ["09:50",59.02], "magnitude" : 3},
+                    { "name" : "Ursa Major - Phi", "pos" : ["09:52",54.03], "magnitude" : 4},
+                    { "name" : "Ursa Major - Chi", "pos" : ["11:46",47.46], "magnitude" : 3},
+                    { "name" : "Ursa Major - Psi", "pos" : ["11:09",44.29], "magnitude" : 3},
+                    { "name" : "Ursa Major - Omega", "pos" : ["10:53",43.11], "magnitude" : 4}
+                ],
+                "line" : [[0,1],[0,3],[1,2],[2,3],[3,4],[4,5],[5,6],[7,9],[8,9],[10,11],[0,18],[18,19],[7,19],[1,19],[18,14],[19,14],[21,2],[22,21],[22,11],[12,13],[12,21]]
             }
         ];
 
-        sphere.init(50);
-        this.asterisms[0] = new asterism(data[0]);
-        this.asterisms[0].init(50);
+        globe.init(50);
+
+        for(var i = 0; i < this.data.length; ++i){
+            this.asterisms[i] = new asterism(this.data[i]);
+            this.asterisms[i].init(50);
+        }
 
         gl.clearColor(0.1, 0.1, 0.1, 1.0);
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 
 	},
     update: function(){
-        this.rotX = (this.rotX >= 360)? 0 : this.rotX + 0.3 ;
-        this.rotZ = (this.rotZ >= 360)? 0 : this.rotZ + 0.3 ;
+        //this.rotX = (this.rotX >= 360)? 0 : this.rotX + 0.3 ;
+        this.rotY = (this.rotY <= 0)? 360 : this.rotY - 0.3 ;
     },
 	drawScene : function(){
         WebGL.update();
 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0, WebGL.pMatrix);
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0, WebGL.pMatrix);
 
         mat4.identity(WebGL.mvMatrix);
-        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, 10.0]);
-        mat4.rotate(WebGL.mvMatrix, degToRad(280), [1.0, 0.0, 0.0]);
-        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotZ), [0.0, 1.0, 0.0]);
+        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -50.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(270), [1.0, 0.0, 0.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotY), [0.0, 1.0, 0.0]);
 
-        sphere.draw();
-        WebGL.asterisms[0].draw();
+        globe.draw();
+
+
+        for(var i = 0; i < WebGL.data.length; ++i){
+            WebGL.asterisms[i].draw();
+        }
 	},
+    mouseClick : function(){
+
+    },
+    mouseDragged : function(){
+
+    },
 	initShader : function(){
         var fragmentShader = this.getShader("shader-fs");
         var vertexShader = this.getShader("shader-vs");
@@ -155,7 +199,7 @@ var Planetarium = {
 }
 
 // 3D 오브젝트 프로토타입
-var sphere = {
+var globe = {
     lineBuffer : null,
     colorBufferRed : null,
     colorBufferWhite : null,
@@ -166,7 +210,7 @@ var sphere = {
 
         var color = [];
         for(var i = 0; i < 72; ++i){
-            color = color.concat([0.5, 0.5, 0.0, 1.0]);
+            color = color.concat([0.3, 0.3, 0.0, 1.0]);
         }
         this.colorBufferRed = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBufferRed);
@@ -176,7 +220,7 @@ var sphere = {
 
         color = [];
         for(var i = 0; i < 72; ++i){
-            color = color.concat([0.5, 0.5, 0.5, 1.0]);
+            color = color.concat([0.3, 0.3, 0.3, 1.0]);
         }
         this.colorBufferWhite = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBufferWhite);
@@ -243,26 +287,32 @@ function asterism(data){
     this.lineElement = [];
     this.lineIndex = data.line;
     this.pointBufferArray = [];
-    this.sphereRadius; 
+    this.globeRadius; 
+    this.pointColorBuffer;
     this.colorBuffer;
 }
 asterism.prototype = {
-    init : function(sphereRadius){
+    init : function(globeRadius){
         var vertices = [];
         for(var i = 0; i < this.stars.length; ++i){
             var star = this.stars[i];
             this.pointBufferArray[i] = circle(0.5/star.magnitude, 12);
 
-            var r = sphereRadius * Math.cos(degToRad(star.pos[1]));
-            var x = r * Math.cos(degToRad(360-star.pos[0]));
-            var y = sphereRadius * Math.sin(degToRad(star.pos[1]));;
-            var z = r * Math.sin(degToRad(360-star.pos[0]));
+            var ascensionTime = star.pos[0].split(":");
+            var ascension = (parseInt(ascensionTime[0])*60 + parseInt(ascensionTime[1]))/4
+            var declination = star.pos[1];
+            star.pos[0] = ascension;
+
+            var r = globeRadius * Math.cos(degToRad(declination));
+            var x = r * Math.cos(degToRad(360-ascension));
+            var y = globeRadius * Math.sin(degToRad(declination));;
+            var z = r * Math.sin(degToRad(360-ascension));
 
             vertices = vertices.concat([x,y,z]);
 
         }
 
-        this.sphereRadius = sphereRadius;
+        this.globeRadius = globeRadius;
 
         this.lineBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
@@ -282,33 +332,26 @@ asterism.prototype = {
         for(var i = 0; i < 12; ++i){
             color = color.concat([1.0, 1.0, 1.0, 1.0]);
         }
+        this.pointColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.pointColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
+        this.pointColorBuffer.itemSize = 4;
+        this.pointColorBuffer.numItems = 12;
+
+        color = [];
+        for(var i = 0; i < this.stars.length; ++i){
+            color = color.concat([0.5, 0.5, 0.5, 1.0]);
+        }
         this.colorBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
         this.colorBuffer.itemSize = 4;
-        this.colorBuffer.numItems = 12;
+        this.colorBuffer.numItems = this.stars.length;
     },
     draw : function(){
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
         gl.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);    
-
-        for(var i = 0; i < this.stars.length; ++i){
-            var star = this.stars[i];
-
-            WebGL.mvPushMatrix();
-            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[0] - 90), [0.0, 1.0, 0.0]);
-            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[1]), [1.0, 0.0, 0.0]);
-            mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -this.sphereRadius]);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.pointBufferArray[i]);
-            gl.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.pointBufferArray[i].itemSize, gl.FLOAT, false, 0, 0);
-            
-            WebGL.setMatrixUniforms();
-            gl.drawArrays(gl.TRIANGLE_FAN, 0, this.pointBufferArray[i].numItems);
-
-            WebGL.mvPopMatrix();
-        }
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
         gl.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, gl.FLOAT, false, 0, 0);    
@@ -317,6 +360,26 @@ asterism.prototype = {
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.lineElement[i]);
             WebGL.setMatrixUniforms();
             gl.drawElements(gl.LINE_STRIP, this.lineElement[i].numItems, gl.UNSIGNED_SHORT, 0);
+        }
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.pointColorBuffer);
+        gl.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.pointColorBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+
+        for(var i = 0; i < this.stars.length; ++i){
+            var star = this.stars[i];
+
+            WebGL.mvPushMatrix();
+            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[0] - 90), [0.0, 1.0, 0.0]);
+            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[1]), [1.0, 0.0, 0.0]);
+            mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -this.globeRadius]);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.pointBufferArray[i]);
+            gl.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.pointBufferArray[i].itemSize, gl.FLOAT, false, 0, 0);
+            
+            WebGL.setMatrixUniforms();
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, this.pointBufferArray[i].numItems);
+
+            WebGL.mvPopMatrix();
         }
     }
 }
@@ -340,6 +403,10 @@ function circle(radius, vertexNum){
     buffer.numItems = vertexNum;
 
     return buffer;
+}
+
+function sphere(){
+
 }
 
 function degToRad(degree){
