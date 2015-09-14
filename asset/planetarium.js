@@ -1,30 +1,64 @@
 var gl; // webgl object
+var drag = { isDrag : false, _x : 0, _y : 0};
+
+$(document).on("mousedown", function(e){
+    drag.isDrag = true;
+    drag._x = e.pageX;
+    drag._y = e.pageY;
+});
+
+$(document).on("mouseup", function(e){
+    drag.isDrag = false;
+})
+
+$(document).on("mousemove", function(e){
+    if(drag.isDrag){
+        //console.log("mouse drag!",e.pageX, e.pageY);
+        WebGL.mouseDrag(e.pageX-drag._x, e.pageY-drag._y);
+    }
+})
+
 
 var WebGL = {
-	canvas : null,
+	glCanvas : null,
+    glContext : null,
+    textCanvas : null,
+    textContext : null,
 	shaderProgram : null,
 	pMatrix : null,
 	mvMatrix : null,
+    tMatrix : null,
 	mvMatrixStack : [],
-    rotX : 0,
+    rotX : 38,
     rotY : 0,
-    rotZ : 0,
+    rotZ : 127,
     buffer : null,
     asterisms : [],
     data : null,
+    earthBuffer : null,
 	start : function(){
-    	this.canvas = $("#glCanvas");
+    	this.glCanvas = $("#glCanvas");
 
-        gl = this.canvas[0].getContext("webgl") || this.canvas[0].getContext("experimental-webgl");
-        gl.viewportWidth = this.canvas.attr("width");   // 스타일로 지정한 가로세로크기는 캔버스가 인식못함 ㅆㅃ 내 열시간...
-        gl.viewportHeight = this.canvas.attr("height");
+        this.glContext = this.glCanvas[0].getContext("webgl") || this.glCanvas[0].getContext("experimental-webgl");
+        this.glContext.viewportWidth = this.glCanvas.attr("width");
+        this.glContext.viewportHeight = this.glCanvas.attr("height");
+
+        // TODO : 텍스트 제어
+        // http://webglfundamentals.org/webgl/webgl-text-html-canvas2d-arrows.html
+        this.textCanvas = $("#textCanvas");
+        this.textContext = this.textCanvas[0].getContext("2d");
 
         this.pMatrix = mat4.create();
         this.mvMatrix = mat4.create();
+        this.tMatrix = mat4.create();
 
-		if(gl){
+		if(this.glContext){
+
+            $(document).on("keydown", this.keyDown);
+
 			this.initShader();
 			this.setup();
+
 
 			setInterval(this.drawScene, 17);
 		}
@@ -77,6 +111,7 @@ var WebGL = {
             }
         ];
 
+        // 오브젝트 초기화
         globe.init(50);
 
         for(var i = 0; i < this.data.length; ++i){
@@ -84,64 +119,114 @@ var WebGL = {
             this.asterisms[i].init(50);
         }
 
-        gl.clearColor(0.1, 0.1, 0.1, 1.0);
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+
+        var vertices = [
+            100, -10, 100,
+            100, -10, -100,
+            -100, -10, -100,
+            -100, -10, 100,
+            100, -10, 100
+        ];
+
+        this.earthBuffer = WebGL.glContext.createBuffer();
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.earthBuffer);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(vertices), WebGL.glContext.STATIC_DRAW);
+        this.earthBuffer.itemSize = 3;
+        this.earthBuffer.numItems = 5;
+
+        this.glContext.clearColor(0.1, 0.1, 0.1, 1.0);
+        this.glContext.enable(this.glContext.DEPTH_TEST);
+        this.glContext.viewport(0, 0, this.glContext.viewportWidth, this.glContext.viewportHeight);
 
 	},
     update: function(){
         //this.rotX = (this.rotX >= 360)? 0 : this.rotX + 0.3 ;
-        this.rotY = (this.rotY <= 0)? 360 : this.rotY - 0.3 ;
+        this.rotY = (this.rotY <= 0)? 360 : this.rotY + 0.3 ;
     },
 	drawScene : function(){
         WebGL.update();
 
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        WebGL.textContext.fillStyle = "white";
+        WebGL.glContext.clear(WebGL.glContext.COLOR_BUFFER_BIT | WebGL.glContext.DEPTH_BUFFER_BIT);   
+        WebGL.textContext.clearRect(0, 0, WebGL.textCanvas.attr("width"), WebGL.textCanvas.attr("height"));
+        WebGL.textContext.save();
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0, WebGL.pMatrix);
+        mat4.perspective(45, WebGL.glContext.viewportWidth / WebGL.glContext.viewportHeight, 0.1, 1000.0, WebGL.pMatrix);
 
         mat4.identity(WebGL.mvMatrix);
-        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -50.0]);
-        mat4.rotate(WebGL.mvMatrix, degToRad(270), [1.0, 0.0, 0.0]);
-        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotY), [0.0, 1.0, 0.0]);
 
+        // camera setting
+        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -40.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotX), [1.0, 0.0, 0.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotZ), [0.0, 0.0, 1.0]);
+
+
+        /*
+        // draw earth
+        WebGL.mvPushMatrix();
+
+        mat4.rotate(WebGL.mvMatrix, degToRad(38), [1.0, 0.0, 0.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(127), [0.0, 0.0, 1.0]);
+
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, WebGL.earthBuffer);
+        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, WebGL.earthBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
+        
+        WebGL.setMatrixUniforms();
+        WebGL.glContext.drawArrays(WebGL.glContext.TRIANGLE_FAN, 0, WebGL.earthBuffer.numItems);
+
+        WebGL.mvPopMatrix();
+        */
+
+        // rotate globe
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotY), [0.0, 1.0, 0.0]);
         globe.draw();
 
+
+        // 3D->2D좌표로 변경
+        mat4.identity(WebGL.tMatrix);
+        WebGL.textContext.translate(100, 100);
+        WebGL.textContext.fillText("이것은 텍스트 입니다!", 20, 20);
 
         for(var i = 0; i < WebGL.data.length; ++i){
             WebGL.asterisms[i].draw();
         }
+
+        WebGL.textContext.restore();
 	},
-    mouseClick : function(){
-
+    drawText : function(text, pos){
+        // TODO ㅠㅠ
     },
-    mouseDragged : function(){
-
+    mouseDrag : function(dx, dy){
+        // TODO 조작 개
+        WebGL.rotX += dy * 0.01
+        WebGL.rotZ += dx * 0.01
+        console.log(WebGL.rotX, WebGL.rotY);
     },
 	initShader : function(){
         var fragmentShader = this.getShader("shader-fs");
         var vertexShader = this.getShader("shader-vs");
 
-        this.shaderProgram = gl.createProgram();
+        this.shaderProgram = this.glContext.createProgram();
 
-        gl.attachShader(this.shaderProgram, vertexShader);
-        gl.attachShader(this.shaderProgram, fragmentShader);
+        this.glContext.attachShader(this.shaderProgram, vertexShader);
+        this.glContext.attachShader(this.shaderProgram, fragmentShader);
 
-        gl.linkProgram(this.shaderProgram);
-        if (!gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS)) {
+        this.glContext.linkProgram(this.shaderProgram);
+        if (!this.glContext.getProgramParameter(this.shaderProgram, this.glContext.LINK_STATUS)) {
             alert("Could not initialise shaders");
         }
 
-        gl.useProgram(this.shaderProgram);
+        this.glContext.useProgram(this.shaderProgram);
 
-        this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexPosition");
-        gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
+        this.shaderProgram.vertexPositionAttribute = this.glContext.getAttribLocation(this.shaderProgram, "aVertexPosition");
+        this.glContext.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
 
-        this.shaderProgram.vertexColorAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexColor");
-        gl.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
+        this.shaderProgram.vertexColorAttribute = this.glContext.getAttribLocation(this.shaderProgram, "aVertexColor");
+        this.glContext.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
         
 
-        this.shaderProgram.pMatrixUniform = gl.getUniformLocation(this.shaderProgram, "uPMatrix");
-        this.shaderProgram.mvMatrixUniform = gl.getUniformLocation(this.shaderProgram, "uMVMatrix");
+        this.shaderProgram.pMatrixUniform = this.glContext.getUniformLocation(this.shaderProgram, "uPMatrix");
+        this.shaderProgram.mvMatrixUniform = this.glContext.getUniformLocation(this.shaderProgram, "uMVMatrix");
     },
     getShader : function(id){
         var shader;
@@ -154,27 +239,27 @@ var WebGL = {
         var source = shaderScript.text();
 
         if (shaderScript.attr("type") == "x-shader/x-fragment") {
-            shader = gl.createShader(gl.FRAGMENT_SHADER);
+            shader = this.glContext.createShader(this.glContext.FRAGMENT_SHADER);
             console.log("fragment shader loaded!")
         } else if (shaderScript.attr("type") == "x-shader/x-vertex") {
-            shader = gl.createShader(gl.VERTEX_SHADER);
+            shader = this.glContext.createShader(this.glContext.VERTEX_SHADER);
             console.log("vertex shader loaded!")
         } else {
             return null;
         }
 
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
+        this.glContext.shaderSource(shader, source);
+        this.glContext.compileShader(shader);
 
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            alert(gl.getShaderInfoLog(shader));
+        if (!this.glContext.getShaderParameter(shader, this.glContext.COMPILE_STATUS)) {
+            alert(this.glContext.getShaderInfoLog(shader));
             return null;
         }
         return shader;
     },
     setMatrixUniforms : function() {
-        gl.uniformMatrix4fv(this.shaderProgram.pMatrixUniform, false, WebGL.pMatrix);
-        gl.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, WebGL.mvMatrix);
+        this.glContext.uniformMatrix4fv(this.shaderProgram.pMatrixUniform, false, WebGL.pMatrix);
+        this.glContext.uniformMatrix4fv(this.shaderProgram.mvMatrixUniform, false, WebGL.mvMatrix);
     },
     mvPushMatrix: function() {
         var copy = mat4.create();
@@ -191,9 +276,6 @@ var WebGL = {
 
 var Planetarium = {
 	init : function(){
-        // 별자리 데이터 로드
-        // 임시 데이터
-
 		WebGL.start();
 	},
 }
@@ -201,6 +283,7 @@ var Planetarium = {
 // 3D 오브젝트 프로토타입
 var globe = {
     lineBuffer : null,
+    earthColorBuffer : null,
     colorBufferRed : null,
     colorBufferWhite : null,
     radius : null,
@@ -212,9 +295,9 @@ var globe = {
         for(var i = 0; i < 72; ++i){
             color = color.concat([0.3, 0.3, 0.0, 1.0]);
         }
-        this.colorBufferRed = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBufferRed);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
+        this.colorBufferRed = WebGL.glContext.createBuffer();
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBufferRed);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(color), WebGL.glContext.STATIC_DRAW);
         this.colorBufferRed.itemSize = 4;
         this.colorBufferRed.numItems = 72;
 
@@ -222,9 +305,9 @@ var globe = {
         for(var i = 0; i < 72; ++i){
             color = color.concat([0.3, 0.3, 0.3, 1.0]);
         }
-        this.colorBufferWhite = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBufferWhite);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
+        this.colorBufferWhite = WebGL.glContext.createBuffer();
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBufferWhite);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(color), WebGL.glContext.STATIC_DRAW);
         this.colorBufferWhite.itemSize = 4;
         this.colorBufferWhite.numItems = 72;
 
@@ -240,14 +323,14 @@ var globe = {
 
             colorBuffer = (i == 0)? this.colorBufferRed : this.colorBufferWhite ;
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
-            gl.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
+            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
             
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-            gl.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, colorBuffer);
+            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
                 
             WebGL.setMatrixUniforms();
-            gl.drawArrays(gl.LINE_LOOP, 0, this.lineBuffer.numItems);
+            WebGL.glContext.drawArrays(WebGL.glContext.LINE_LOOP, 0, this.lineBuffer.numItems);
         }
         WebGL.mvPopMatrix();
 
@@ -264,14 +347,14 @@ var globe = {
             
             colorBuffer = (i == 0)? this.colorBufferRed : this.colorBufferWhite;
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
-            gl.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
+            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
             
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-            gl.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, colorBuffer);
+            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
 
             WebGL.setMatrixUniforms();
-            gl.drawArrays(gl.LINE_LOOP, 0, this.lineBuffer.numItems);
+            WebGL.glContext.drawArrays(WebGL.glContext.LINE_LOOP, 0, this.lineBuffer.numItems);
 
             WebGL.mvPopMatrix();
         }
@@ -303,10 +386,10 @@ asterism.prototype = {
             var declination = star.pos[1];
             star.pos[0] = ascension;
 
-            var r = globeRadius * Math.cos(degToRad(declination));
-            var x = r * Math.cos(degToRad(360-ascension));
-            var y = globeRadius * Math.sin(degToRad(declination));;
-            var z = r * Math.sin(degToRad(360-ascension));
+            var r = globeRadius * Math.cos(degToRad(360-declination));
+            var x = r * Math.cos(degToRad(ascension));
+            var y = globeRadius * Math.sin(degToRad(360-declination));;
+            var z = r * Math.sin(degToRad(ascension));
 
             vertices = vertices.concat([x,y,z]);
 
@@ -314,16 +397,16 @@ asterism.prototype = {
 
         this.globeRadius = globeRadius;
 
-        this.lineBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        this.lineBuffer = WebGL.glContext.createBuffer();
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(vertices), WebGL.glContext.STATIC_DRAW);
         this.lineBuffer.itemSize = 3;
         this.lineBuffer.numItems = this.stars.length;
 
         for(var i = 0; i < this.lineIndex.length; ++i){
-            this.lineElement.push(gl.createBuffer());
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.lineElement[i]);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.lineIndex[i]), gl.STATIC_DRAW);
+            this.lineElement.push(WebGL.glContext.createBuffer());
+            WebGL.glContext.bindBuffer(WebGL.glContext.ELEMENT_ARRAY_BUFFER, this.lineElement[i]);
+            WebGL.glContext.bufferData(WebGL.glContext.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.lineIndex[i]), WebGL.glContext.STATIC_DRAW);
             this.lineElement[i].itemSize = 1;
             this.lineElement[i].numItems = 2;
         }
@@ -332,9 +415,9 @@ asterism.prototype = {
         for(var i = 0; i < 12; ++i){
             color = color.concat([1.0, 1.0, 1.0, 1.0]);
         }
-        this.pointColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.pointColorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
+        this.pointColorBuffer = WebGL.glContext.createBuffer();
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.pointColorBuffer);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(color), WebGL.glContext.STATIC_DRAW);
         this.pointColorBuffer.itemSize = 4;
         this.pointColorBuffer.numItems = 12;
 
@@ -342,42 +425,51 @@ asterism.prototype = {
         for(var i = 0; i < this.stars.length; ++i){
             color = color.concat([0.5, 0.5, 0.5, 1.0]);
         }
-        this.colorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
+        this.colorBuffer = WebGL.glContext.createBuffer();
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBuffer);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(color), WebGL.glContext.STATIC_DRAW);
         this.colorBuffer.itemSize = 4;
         this.colorBuffer.numItems = this.stars.length;
     },
     draw : function(){
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
-        gl.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBuffer);
+        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);    
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
-        gl.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
+        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);    
 
         for(var i = 0; i < this.lineElement.length; ++i){  
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.lineElement[i]);
+            WebGL.glContext.bindBuffer(WebGL.glContext.ELEMENT_ARRAY_BUFFER, this.lineElement[i]);
             WebGL.setMatrixUniforms();
-            gl.drawElements(gl.LINE_STRIP, this.lineElement[i].numItems, gl.UNSIGNED_SHORT, 0);
+            WebGL.glContext.drawElements(WebGL.glContext.LINE_STRIP, this.lineElement[i].numItems, WebGL.glContext.UNSIGNED_SHORT, 0);
         }
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.pointColorBuffer);
-        gl.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.pointColorBuffer.itemSize, gl.FLOAT, false, 0, 0);    
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.pointColorBuffer);
+        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.pointColorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);    
 
         for(var i = 0; i < this.stars.length; ++i){
             var star = this.stars[i];
 
             WebGL.mvPushMatrix();
-            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[0] - 90), [0.0, 1.0, 0.0]);
+            mat4.rotate(WebGL.mvMatrix, degToRad(90-star.pos[0]), [0.0, 1.0, 0.0]);
             mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[1]), [1.0, 0.0, 0.0]);
-            mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -this.globeRadius]);
+            mat4.translate(WebGL.mvMatrix, [0.0, 0.0, this.globeRadius - 0.1]);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.pointBufferArray[i]);
-            gl.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.pointBufferArray[i].itemSize, gl.FLOAT, false, 0, 0);
+            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.pointBufferArray[i]);
+            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.pointBufferArray[i].itemSize, WebGL.glContext.FLOAT, false, 0, 0);
             
             WebGL.setMatrixUniforms();
-            gl.drawArrays(gl.TRIANGLE_FAN, 0, this.pointBufferArray[i].numItems);
+            WebGL.glContext.drawArrays(WebGL.glContext.TRIANGLE_FAN, 0, this.pointBufferArray[i].numItems);
+
+
+            if(i == 0){
+                //mat4.translate(WebGL.tMatrix, [50.0, 20.0, 0.0]);
+                mat4.multiply(WebGL.tMatrix, WebGL.pMatrix);
+                mat4.multiply(WebGL.tMatrix, WebGL.mvMatrix);
+
+                //console.log(WebGL.tMatrix[0],WebGL.tMatrix[5]);
+            }
 
             WebGL.mvPopMatrix();
         }
@@ -385,7 +477,7 @@ asterism.prototype = {
 }
 
 function circle(radius, vertexNum){
-    var buffer = gl.createBuffer();
+    var buffer = WebGL.glContext.createBuffer();
     var vertices = [];
     var degree = 360/vertexNum;
 
@@ -396,8 +488,8 @@ function circle(radius, vertexNum){
         vertices = vertices.concat([x,y,z]);
     }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER,  new Float32Array(vertices), gl.STATIC_DRAW);
+    WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, buffer);
+    WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER,  new Float32Array(vertices), WebGL.glContext.STATIC_DRAW);
 
     buffer.itemSize = 3;
     buffer.numItems = vertexNum;
@@ -411,4 +503,9 @@ function sphere(){
 
 function degToRad(degree){
 	return degree * Math.PI / 180
+}
+
+function matrixMult(matrix1, matrix2){
+    var result = [];
+
 }

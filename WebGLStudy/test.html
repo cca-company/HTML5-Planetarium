@@ -6,7 +6,9 @@
 		<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
 		<script type="text/javascript">
 			var canvas;
+			var textCanvas;
 			var gl;
+			var ctx;
 			var shaderProgram;
 			var pMatrix = mat4.create();
 			var mvMatrix = mat4.create();
@@ -14,11 +16,14 @@
 			var vertices2Buffer;
 			var vertices2Index = [];
 			var mvMatrixStack = [];
+			var triangleBuffer;
+			var tMatrix = mat4.create();
 
 			var rotX = 0,rotY = 0,rotZ = 0;
 
 			function glStart(){
 		    	canvas = $("#glcanvas");
+		    	textCanvas = $("#textcanvas");
 
 				initGL(canvas);
 
@@ -38,6 +43,7 @@
 	            gl = canvas[0].getContext("webgl") || canvas[0].getContext("experimental-webgl");
 	            gl.viewportWidth = canvas.width();
 	            gl.viewportHeight = canvas.height();
+	            ctx = textCanvas[0].getContext("2d");
 
 		        if (!gl) {
 		            alert("webGL을 지원하지 않는 브라우저입니");
@@ -143,13 +149,26 @@
 			    	}
 		    	}
 
-		    	console.log(vertices);
+		    	//console.log(vertices);
 
 		    	vertices2Buffer = gl.createBuffer();
 		    	gl.bindBuffer(gl.ARRAY_BUFFER, vertices2Buffer);
 		    	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 		    	vertices2Buffer.itemSize = 3;
 		    	vertices2Buffer.numItems = numItem * 24;
+
+
+		    	vertices = [
+		    		-1,0,0,
+		    		1,0,0,
+		    		0,1,0
+		    	];
+
+		    	triangleBuffer = gl.createBuffer();
+		    	gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+		    	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		    	triangleBuffer.itemSize = 3;
+		    	triangleBuffer.numItems = 3;
 
 
 		    	for(var i = 0; i < 24; ++i){
@@ -167,12 +186,42 @@
 		    function drawScene(){
 		    	update();
         		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        		ctx.clearRect(0, 0, gl.viewportWidth, gl.viewportHeight);
+        		ctx.save();
 
         		mat4.perspective(45, gl.viewportWidth/gl.viewportHeight, 0.1, 200.0, pMatrix);
+        		mat4.identity(mvMatrix);
+        		mat4.translate(mvMatrix, [0.0, 0.0, -10.0]);
+
+
+        		mat4.rotate(mvMatrix, degToRad(rotZ), [0.0, 1.0, 0.0]);
+        		gl.bindBuffer(gl.ARRAY_BUFFER, triangleBuffer);
+		        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, triangleBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+		        setMatrixUniforms();
+		        gl.drawArrays(gl.TRIANGLE_STRIP, 0, triangleBuffer.numItems);
+
+		        mat4.identity(tMatrix);
+		        //mat4.translate(tMatrix,[2.0,0.0,0.0]);
+		        mat4.multiply(tMatrix,mvMatrix);
+		        mat4.multiply(tMatrix,pMatrix);
+		        //console.log(tMatrix);
+		        var myvector = vec3.create();
+		        vec3.set(myvector,[3,0,0]);
+		        vec3.transformMat4(myvector, myvector, tMatrix);
+		        console.log(tMatrix[0]);
+
+		        var x = myvector[0];
+
+		        ctx.translate(gl.viewportWidth/2 + x, gl.viewportHeight/2 + tMatrix[5]);
+		        ctx.fillText("아이고데이고..", 5, 5);
+		        ctx.restore();
+
 
         		/*
         		구현방법 2 : 버퍼에 미리 그린 구를 넣어두고 꺼내서 그린다
         		*/
+        		/*
         		mat4.identity(mvMatrix);
         		mat4.translate(mvMatrix, [0.0, 0.0, -10.0]);
         		mat4.rotate(mvMatrix, degToRad(rotX), [1.0, 0.0, 0.0]);
@@ -192,7 +241,7 @@
 			        gl.drawElements(gl.LINE_LOOP, vertices2Index[i].numItems, gl.UNSIGNED_SHORT, 0);		        
 		    	}
 		        //gl.drawArrays(gl.LINE_LOOP, 0, vertices2Index.numItems);
-
+		        */
         		/*
         		구현방법 1 : 원 하나를 미리 그려놓고 그걸로 지지고 볶는다
         		문제 : 매 프레임마다 계산비용이 너무 큼, 각 적경과 적위의 좌표를 알기 어려움
@@ -291,6 +340,7 @@
 		</script>
 	</head>
 	<body onload="glStart()">
-		<canvas id="glcanvas" width="1000" height="700"></canvas>
+		<canvas id="glcanvas" width="1000" height="700" style="position:absolute; top:0; left:0; z-index:10"></canvas>
+		<canvas id="textcanvas" width="1000" height="700" style="position:absolute; top:0; left:0; z-index:100"></canvas>
 	</body>
 </html>

@@ -8,5 +8,8 @@ body{
 	height:100%;
 }
 
-#glCanvas{
+#textCanvas{
+	position:absolute;
+	top:0;
+	left:0;
 }
