@@ -1,3 +1,5 @@
+@import url(https://fonts.googleapis.com/css?family=Nixie+One);
+
 html{
 	height:100%;
 }
@@ -9,4 +11,41 @@ body{
 }
 
 #glCanvas{
+	position:absolute;
+	top:0;
+	left:0;
+	z-index:1;
+}
+
+#textCanvas{
+	position:absolute;
+	top:0;
+	left:0;
+	z-index:10;
+}
+
+#optionBox{
+	color:#fff;
+	position:absolute;
+	z-index:20;
+	bottom:20px;
+	left:20px;
+	font-family: 'Nixie One', cursive;
+}
+	#time{
+		margin:0;
+	}
+		#am-pm{
+			font-size:50px;
+		}
+
+		#time-num{
+			font-size:90px;
+		}
+
+	#location{
+		width:170px;
+	}
+i{
+	margin:0px 5px;
 }
