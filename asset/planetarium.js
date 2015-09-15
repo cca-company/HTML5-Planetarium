@@ -1,24 +1,3 @@
-var gl; // webgl object
-var drag = { isDrag : false, _x : 0, _y : 0};
-
-$(document).on("mousedown", function(e){
-    drag.isDrag = true;
-    drag._x = e.pageX;
-    drag._y = e.pageY;
-});
-
-$(document).on("mouseup", function(e){
-    drag.isDrag = false;
-})
-
-$(document).on("mousemove", function(e){
-    if(drag.isDrag){
-        //console.log("mouse drag!",e.pageX, e.pageY);
-        WebGL.mouseDrag(e.pageX-drag._x, e.pageY-drag._y);
-    }
-})
-
-
 var WebGL = {
 	glCanvas : null,
     glContext : null,
@@ -29,9 +8,11 @@ var WebGL = {
 	mvMatrix : null,
     tMatrix : null,
 	mvMatrixStack : [],
-    rotX : 38,
+    rotX : 0,
     rotY : 0,
-    rotZ : 127,
+    rotGlobe : 0,
+    locateLatitude : 38,
+    locateGradient : 127,
     buffer : null,
     asterisms : [],
     data : null,
@@ -59,8 +40,7 @@ var WebGL = {
 			this.initShader();
 			this.setup();
 
-
-			setInterval(this.drawScene, 17);
+            this.drawScene();
 		}
 	},
 	setup : function(){
@@ -112,20 +92,20 @@ var WebGL = {
         ];
 
         // 오브젝트 초기화
-        globe.init(50);
+        globe.init(150);
 
         for(var i = 0; i < this.data.length; ++i){
             this.asterisms[i] = new asterism(this.data[i]);
-            this.asterisms[i].init(50);
+            this.asterisms[i].init(150);
         }
 
 
         var vertices = [
-            100, -10, 100,
-            100, -10, -100,
-            -100, -10, -100,
-            -100, -10, 100,
-            100, -10, 100
+            200, -20, 200,
+            200, -20, -200,
+            -200, -20, -200,
+            -200, -20, 200,
+            200, -20, 200
         ];
 
         this.earthBuffer = WebGL.glContext.createBuffer();
@@ -139,12 +119,7 @@ var WebGL = {
         this.glContext.viewport(0, 0, this.glContext.viewportWidth, this.glContext.viewportHeight);
 
 	},
-    update: function(){
-        //this.rotX = (this.rotX >= 360)? 0 : this.rotX + 0.3 ;
-        this.rotY = (this.rotY <= 0)? 360 : this.rotY + 0.3 ;
-    },
 	drawScene : function(){
-        WebGL.update();
 
         WebGL.textContext.fillStyle = "white";
         WebGL.glContext.clear(WebGL.glContext.COLOR_BUFFER_BIT | WebGL.glContext.DEPTH_BUFFER_BIT);   
@@ -156,29 +131,27 @@ var WebGL = {
         mat4.identity(WebGL.mvMatrix);
 
         // camera setting
-        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -40.0]);
+        // 위치 경도,위도 기반으로 카메라 회전축 설정 
+        var r = Math.cos(degToRad(WebGL.locateLatitude));
+        var x = r * Math.cos(degToRad(WebGL.locateGradient));
+        var y = Math.sin(degToRad(WebGL.locateLatitude));
+        var z = r * Math.sin(degToRad(WebGL.locateGradient));
+
+        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, 0.0]);
         mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotX), [1.0, 0.0, 0.0]);
-        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotZ), [0.0, 0.0, 1.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotY), [0.0, 1.0, 0.0]);
 
-
-        /*
         // draw earth
-        WebGL.mvPushMatrix();
-
-        mat4.rotate(WebGL.mvMatrix, degToRad(38), [1.0, 0.0, 0.0]);
-        mat4.rotate(WebGL.mvMatrix, degToRad(127), [0.0, 0.0, 1.0]);
-
         WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, WebGL.earthBuffer);
         WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, WebGL.earthBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
         
         WebGL.setMatrixUniforms();
         WebGL.glContext.drawArrays(WebGL.glContext.TRIANGLE_FAN, 0, WebGL.earthBuffer.numItems);
 
-        WebGL.mvPopMatrix();
-        */
 
         // rotate globe
-        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotY), [0.0, 1.0, 0.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.locateLatitude), [1.0, 0.0, 0.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotGlobe), [0.0, 1.0, 0.0]);
         globe.draw();
 
 
@@ -193,14 +166,22 @@ var WebGL = {
 
         WebGL.textContext.restore();
 	},
+    rotateGlobe : function(degree){
+        this.rotGlobe = 360-degree;
+        this.drawScene();
+    },
     drawText : function(text, pos){
         // TODO ㅠㅠ
     },
     mouseDrag : function(dx, dy){
-        // TODO 조작 개
-        WebGL.rotX += dy * 0.01
-        WebGL.rotZ += dx * 0.01
-        console.log(WebGL.rotX, WebGL.rotY);
+        WebGL.rotX -= dy * 0.01;
+
+        if(WebGL.rotX < -90) WebGL.rotX = -90;
+        if(WebGL.rotX > 20) WebGL.rotX = 20;
+
+        WebGL.rotY -= dx * 0.01;
+
+        this.drawScene();
     },
 	initShader : function(){
         var fragmentShader = this.getShader("shader-fs");
@@ -275,9 +256,80 @@ var WebGL = {
 }
 
 var Planetarium = {
+    time : null,
+    timeout : null,
+    drag : { isDrag : false, _x : 0, _y : 0},
 	init : function(){
+        $(document).on("mousedown", function(e){
+            Planetarium.drag.isDrag = true;
+            Planetarium.drag._x = e.pageX;
+            Planetarium.drag._y = e.pageY;
+        });
+
+        $(document).on("mouseup", function(e){
+            Planetarium.drag.isDrag = false;
+        })
+
+        $(document).on("mousemove", function(e){
+            if(Planetarium.drag.isDrag){
+                WebGL.mouseDrag(e.pageX-Planetarium.drag._x, e.pageY-Planetarium.drag._y);
+            }
+        })
 		WebGL.start();
+
+        this.time = new Date();
+        this.runTime();
 	},
+    runTime : function(option){
+
+        clearTimeout(Planetarium.timeout);
+
+        switch(option){
+            case "back-fast" :
+                Planetarium.timeout = setTimeout(Planetarium.runTime,16,option);
+                Planetarium.time.setMinutes(Planetarium.time.getMinutes()-2);
+                break;
+            case "back-slow" :
+                Planetarium.timeout = setTimeout(Planetarium.runTime,16,option);
+                Planetarium.time.setMinutes(Planetarium.time.getMinutes()-1);
+                break;
+            case "basic" : 
+                Planetarium.timeout = setTimeout(Planetarium.runTime,1000,option);
+                Planetarium.time.setSeconds(Planetarium.time.getSeconds()+1);
+                break;
+            case "forward-slow" :
+                Planetarium.timeout = setTimeout(Planetarium.runTime,16,option);
+                Planetarium.time.setMinutes(Planetarium.time.getMinutes()+1);
+                break;
+            case "forward-fast" :
+                Planetarium.timeout = setTimeout(Planetarium.runTime,16,option);
+                Planetarium.time.setMinutes(Planetarium.time.getMinutes()+2);
+                break;
+            case "stop":
+                break;
+            default : 
+                Planetarium.timeout = setTimeout(Planetarium.runTime,1000);
+                Planetarium.time = new Date();
+                break;
+        }
+
+        Planetarium.setTime();
+    },
+    setTime : function(){
+        var timeText;
+        var ampm;
+
+        timeText = digit(this.time.getHours() % 12, 2) + ":";
+        timeText += digit(this.time.getMinutes(), 2) + ":";
+        timeText += digit(this.time.getSeconds(), 2);
+
+        ampm = (this.time.getHours() >= 12)?"PM":"AM";
+
+        $("#am-pm").text(ampm);
+        $("#time-num").text(timeText);
+
+        WebGL.rotateGlobe((this.time.getHours() * 60 + this.time.getMinutes())/4);
+    }
 }
 
 // 3D 오브젝트 프로토타입
@@ -321,7 +373,7 @@ var globe = {
 
             mat4.rotate(WebGL.mvMatrix, degToRad(15), [0.0, 1.0, 0.0]);
 
-            colorBuffer = (i == 0)? this.colorBufferRed : this.colorBufferWhite ;
+            colorBuffer = (i == 11)? this.colorBufferRed : this.colorBufferWhite ;
 
             WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
             WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
@@ -379,17 +431,17 @@ asterism.prototype = {
         var vertices = [];
         for(var i = 0; i < this.stars.length; ++i){
             var star = this.stars[i];
-            this.pointBufferArray[i] = circle(0.5/star.magnitude, 12);
+            this.pointBufferArray[i] = circle(1.0/star.magnitude, 12);
 
             var ascensionTime = star.pos[0].split(":");
             var ascension = (parseInt(ascensionTime[0])*60 + parseInt(ascensionTime[1]))/4
             var declination = star.pos[1];
             star.pos[0] = ascension;
 
-            var r = globeRadius * Math.cos(degToRad(360-declination));
-            var x = r * Math.cos(degToRad(ascension));
-            var y = globeRadius * Math.sin(degToRad(360-declination));;
-            var z = r * Math.sin(degToRad(ascension));
+            var r = globeRadius * Math.cos(degToRad(declination));
+            var x = r * Math.cos(degToRad(360 - ascension));
+            var y = globeRadius * Math.sin(degToRad(declination));;
+            var z = r * Math.sin(degToRad(360 - ascension));
 
             vertices = vertices.concat([x,y,z]);
 
@@ -452,9 +504,9 @@ asterism.prototype = {
             var star = this.stars[i];
 
             WebGL.mvPushMatrix();
-            mat4.rotate(WebGL.mvMatrix, degToRad(90-star.pos[0]), [0.0, 1.0, 0.0]);
+            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[0] - 90), [0.0, 1.0, 0.0]);
             mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[1]), [1.0, 0.0, 0.0]);
-            mat4.translate(WebGL.mvMatrix, [0.0, 0.0, this.globeRadius - 0.1]);
+            mat4.translate(WebGL.mvMatrix, [0.0, 0.0, - this.globeRadius + 0.1]);
 
             WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.pointBufferArray[i]);
             WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.pointBufferArray[i].itemSize, WebGL.glContext.FLOAT, false, 0, 0);
@@ -497,12 +549,17 @@ function circle(radius, vertexNum){
     return buffer;
 }
 
-function sphere(){
-
-}
-
 function degToRad(degree){
 	return degree * Math.PI / 180
+}
+
+function digit(num,digit){
+    var res;
+    for(var i = 0; i < digit; ++i){
+        res += "0";
+    }
+
+    return (res + num).slice(-digit);
 }
 
 function matrixMult(matrix1, matrix2){

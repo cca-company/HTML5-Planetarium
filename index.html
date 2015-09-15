@@ -6,6 +6,7 @@
 	<script type="text/javascript" src="asset/glMatrix-0.9.5.min.js"></script>
 	<script type="text/javascript" src="asset/planetarium.js"></script>
 	<link rel="stylesheet" type="text/css" media="screen" href="asset/common.css" />
+  	<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css">
 
 	<!--TODO: 쉐이더 스크립트 개별 파일로 빼고 로딩하기-->
 	<script id="shader-fs" type="x-shader/x-fragment">
@@ -36,5 +37,18 @@
 <body onload="Planetarium.init()">
 	<canvas id="glCanvas" width="1280" height="768"></canvas>
 	<canvas id="textCanvas" width="1280" height="768"></canvas>
+	<div id="optionBox">
+		<p id="time">
+			<span id="am-pm">PM</span>
+			<span id="time-num">10:38:11</span>
+		</p>
+		<span class="fa fa-map-marker" id="location"> Korea, seoul</span>
+		<i onclick="Planetarium.runTime('back-fast')" class="fa fa-fast-backward"></i>
+		<i onclick="Planetarium.runTime('back-slow')" class="fa fa-step-backward"></i>
+		<i onclick="Planetarium.runTime('stop')" class="fa fa-stop"></i>
+		<i onclick="Planetarium.runTime('basic')" class="fa fa-play"></i>
+		<i onclick="Planetarium.runTime('forward-slow')" class="fa fa-step-forward"></i>
+		<i onclick="Planetarium.runTime('forward-fast')" class="fa fa-fast-forward"></i>
+	</div>
 </body>
 </html>
