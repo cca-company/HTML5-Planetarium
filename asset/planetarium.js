@@ -17,17 +17,17 @@ var WebGL = {
     asterisms : [],
     data : null,
     earthBuffer : null,
+    colorBuffer : null,
 	start : function(){
     	this.glCanvas = $("#glCanvas");
-
         this.glContext = this.glCanvas[0].getContext("webgl") || this.glCanvas[0].getContext("experimental-webgl");
-        this.glContext.viewportWidth = this.glCanvas.attr("width");
-        this.glContext.viewportHeight = this.glCanvas.attr("height");
 
         // TODO : 텍스트 제어
         // http://webglfundamentals.org/webgl/webgl-text-html-canvas2d-arrows.html
         this.textCanvas = $("#textCanvas");
         this.textContext = this.textCanvas[0].getContext("2d");
+
+        this.setWindow();
 
         this.pMatrix = mat4.create();
         this.mvMatrix = mat4.create();
@@ -114,9 +114,18 @@ var WebGL = {
         this.earthBuffer.itemSize = 3;
         this.earthBuffer.numItems = 5;
 
+        var color = [];
+        for(var i = 0; i < 5; ++i){
+            color = color.concat([0.0, 0.0, 0.0, 1.0]);
+        }
+        this.colorBuffer = WebGL.glContext.createBuffer();
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBuffer);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(color), WebGL.glContext.STATIC_DRAW);
+        this.colorBuffer.itemSize = 4;
+        this.colorBuffer.numItems = 5;
+
         this.glContext.clearColor(0.1, 0.1, 0.1, 1.0);
         this.glContext.enable(this.glContext.DEPTH_TEST);
-        this.glContext.viewport(0, 0, this.glContext.viewportWidth, this.glContext.viewportHeight);
 
 	},
 	drawScene : function(){
@@ -142,6 +151,9 @@ var WebGL = {
         mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotY), [0.0, 1.0, 0.0]);
 
         // draw earth
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, WebGL.colorBuffer);
+        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, WebGL.colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
+
         WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, WebGL.earthBuffer);
         WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, WebGL.earthBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
         
@@ -156,9 +168,11 @@ var WebGL = {
 
 
         // 3D->2D좌표로 변경
+        /*
         mat4.identity(WebGL.tMatrix);
         WebGL.textContext.translate(100, 100);
         WebGL.textContext.fillText("이것은 텍스트 입니다!", 20, 20);
+        */
 
         for(var i = 0; i < WebGL.data.length; ++i){
             WebGL.asterisms[i].draw();
@@ -182,6 +196,23 @@ var WebGL = {
         WebGL.rotY -= dx * 0.01;
 
         this.drawScene();
+    },
+    setWindow : function(){
+        var windowWidth = $(document).width();
+        var windowHeight = $(document).height();
+
+        WebGL.glCanvas.attr("width",windowWidth);
+        WebGL.glCanvas.attr("height",windowHeight);
+
+        WebGL.textCanvas.attr("width",windowWidth);
+        WebGL.textCanvas.attr("height",windowHeight);
+
+        WebGL.glContext.viewportWidth = windowWidth;
+        WebGL.glContext.viewportHeight = windowHeight;
+
+        
+        WebGL.glContext.viewport(0, 0, windowWidth, windowHeight);
+
     },
 	initShader : function(){
         var fragmentShader = this.getShader("shader-fs");
@@ -275,6 +306,9 @@ var Planetarium = {
                 WebGL.mouseDrag(e.pageX-Planetarium.drag._x, e.pageY-Planetarium.drag._y);
             }
         })
+
+        $(window).on("resize", WebGL.setWindow);
+
 		WebGL.start();
 
         this.time = new Date();
