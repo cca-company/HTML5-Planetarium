@@ -1,0 +1,45 @@
+[
+    {
+        "name" : "Ursa Minor",
+        "stars" :[
+            { "name" : "Polaris", "pos" : ["02:31",89.15], "magnitude" : 1},
+            { "name" : "Kochab", "pos" : ["14:50",74.09], "magnitude" : 2},
+            { "name" : "Ursa Minor - Gamma", "pos" : ["15:20",71.50], "magnitude" : 3},
+            { "name" : "Ursa Minor - Delta", "pos" : ["17:32",86.35], "magnitude" : 4},
+            { "name" : "Ursa Minor - Epsilon", "pos" : ["16:45",82.02], "magnitude" : 4},
+            { "name" : "Ursa Minor - Zeta", "pos" : ["15:44",77.47], "magnitude" : 4},
+            { "name" : "Ursa Minor - Eta", "pos" : ["16:17",75.45], "magnitude" : 5}
+        ],
+        "line" : [[2,6],[6,5],[1,2],[1,5],[5,4],[3,4],[3,0]]
+    },
+    {
+        "name" : "Ursa Major",
+        "stars" : [
+            { "name" : "Dubhe", "pos" : ["11:03",61.45], "magnitude" : 1},
+            { "name" : "Merak", "pos" : ["11:01",56.22], "magnitude" : 2},
+            { "name" : "Phecda", "pos" : ["11:53",53.41], "magnitude" : 2},
+            { "name" : "Megrez", "pos" : ["12:15",57.01], "magnitude" : 3},
+            { "name" : "Alioth", "pos" : ["12:54",55.57], "magnitude" : 1},
+            { "name" : "Mizar", "pos" : ["13:23",54.55], "magnitude" : 2},
+            { "name" : "Alkaid", "pos" : ["13:47",49.18], "magnitude" : 3},
+            { "name" : "Ursa Major - Theta", "pos" : ["09:32",51.40], "magnitude" : 1},
+            { "name" : "Ursa Major - Iota", "pos" : ["08:59",48.02], "magnitude" : 3},
+            { "name" : "Ursa Major - Kappa", "pos" : ["09:03",47.09], "magnitude" : 3},
+            { "name" : "Ursa Major - Lambda", "pos" : ["10:17",42.54], "magnitude" : 3},
+            { "name" : "Ursa Major - Mu", "pos" : ["10:22",41.29], "magnitude" : 3},
+            { "name" : "Ursa Major - Nu", "pos" : ["11:18",33.05], "magnitude" : 3},
+            { "name" : "Ursa Major - Xi", "pos" : ["11:18",31.31], "magnitude" : 3},
+            { "name" : "Ursa Major - Omicron", "pos" : ["08:30",60.43], "magnitude" : 3},
+            { "name" : "Ursa Major - Pi", "pos" : ["08:39",65.01], "magnitude" : 5},
+            { "name" : "Ursa Major - Rho", "pos" : ["09:02",67.37], "magnitude" : 4},
+            { "name" : "Ursa Major - Sigma", "pos" : ["09:10",66.52], "magnitude" : 5},
+            { "name" : "Ursa Major - Tau", "pos" : ["09:10",63.30], "magnitude" : 4},
+            { "name" : "Ursa Major - Upsilon", "pos" : ["09:50",59.02], "magnitude" : 3},
+            { "name" : "Ursa Major - Phi", "pos" : ["09:52",54.03], "magnitude" : 4},
+            { "name" : "Ursa Major - Chi", "pos" : ["11:46",47.46], "magnitude" : 3},
+            { "name" : "Ursa Major - Psi", "pos" : ["11:09",44.29], "magnitude" : 3},
+            { "name" : "Ursa Major - Omega", "pos" : ["10:53",43.11], "magnitude" : 4}
+        ],
+        "line" : [[0,1],[0,3],[1,2],[2,3],[3,4],[4,5],[5,6],[7,9],[8,9],[10,11],[0,18],[18,19],[7,19],[1,19],[18,14],[19,14],[21,2],[22,21],[22,11],[12,13],[12,21]]
+    }
+]

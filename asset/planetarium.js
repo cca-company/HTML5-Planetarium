@@ -18,7 +18,8 @@ var WebGL = {
     data : null,
     earthBuffer : null,
     colorBuffer : null,
-	start : function(){
+    bgcolor : [0.0,0.0,0.0,1.0],
+	start : function(data){
     	this.glCanvas = $("#glCanvas");
         this.glContext = this.glCanvas[0].getContext("webgl") || this.glCanvas[0].getContext("experimental-webgl");
 
@@ -38,61 +39,17 @@ var WebGL = {
             $(document).on("keydown", this.keyDown);
 
 			this.initShader();
-			this.setup();
+			this.setup(data);
 
-            this.drawScene();
+            //this.drawScene();
 		}
 	},
-	setup : function(){
-        // 임시 데이터
-        this.data = [
-            {
-                "name" : "Ursa Minor",
-                "stars" :[
-                    { "name" : "Polaris", "pos" : ["02:31",89.15], "magnitude" : 1},  // 항성명 : [적경, 적위, 밝기]
-                    { "name" : "Kochab", "pos" : ["14:50",74.09], "magnitude" : 2},
-                    { "name" : "Ursa Minor - Gamma", "pos" : ["15:20",71.50], "magnitude" : 3},
-                    { "name" : "Ursa Minor - Delta", "pos" : ["17:32",86.35], "magnitude" : 4},
-                    { "name" : "Ursa Minor - Epsilon", "pos" : ["16:45",82.02], "magnitude" : 4},
-                    { "name" : "Ursa Minor - Zeta", "pos" : ["15:44",77.47], "magnitude" : 4},
-                    { "name" : "Ursa Minor - Eta", "pos" : ["16:17",75.45], "magnitude" : 5}
-                ],
-                "line" : [[2,6],[6,5],[1,2],[1,5],[5,4],[3,4],[3,0]]
-            },
-            {
-                "name" : "Ursa Major",
-                "stars" : [
-                    { "name" : "Dubhe", "pos" : ["11:03",61.45], "magnitude" : 1},
-                    { "name" : "Merak", "pos" : ["11:01",56.22], "magnitude" : 2},
-                    { "name" : "Phecda", "pos" : ["11:53",53.41], "magnitude" : 2},
-                    { "name" : "Megrez", "pos" : ["12:15",57.01], "magnitude" : 3},
-                    { "name" : "Alioth", "pos" : ["12:54",55.57], "magnitude" : 1},
-                    { "name" : "Mizar", "pos" : ["13:23",54.55], "magnitude" : 2},
-                    { "name" : "Alkaid", "pos" : ["13:47",49.18], "magnitude" : 3},
-                    { "name" : "Ursa Major - Theta", "pos" : ["09:32",51.40], "magnitude" : 1},
-                    { "name" : "Ursa Major - Iota", "pos" : ["08:59",48.02], "magnitude" : 3},
-                    { "name" : "Ursa Major - Kappa", "pos" : ["09:03",47.09], "magnitude" : 3},
-                    { "name" : "Ursa Major - Lambda", "pos" : ["10:17",42.54], "magnitude" : 3},
-                    { "name" : "Ursa Major - Mu", "pos" : ["10:22",41.29], "magnitude" : 3},
-                    { "name" : "Ursa Major - Nu", "pos" : ["11:18",33.05], "magnitude" : 3},
-                    { "name" : "Ursa Major - Xi", "pos" : ["11:18",31.31], "magnitude" : 3},
-                    { "name" : "Ursa Major - Omicron", "pos" : ["08:30",60.43], "magnitude" : 3},
-                    { "name" : "Ursa Major - Pi", "pos" : ["08:39",65.01], "magnitude" : 5},
-                    { "name" : "Ursa Major - Rho", "pos" : ["09:02",67.37], "magnitude" : 4},
-                    { "name" : "Ursa Major - Sigma", "pos" : ["09:10",66.52], "magnitude" : 5},
-                    { "name" : "Ursa Major - Tau", "pos" : ["09:10",63.30], "magnitude" : 4},
-                    { "name" : "Ursa Major - Upsilon", "pos" : ["09:50",59.02], "magnitude" : 3},
-                    { "name" : "Ursa Major - Phi", "pos" : ["09:52",54.03], "magnitude" : 4},
-                    { "name" : "Ursa Major - Chi", "pos" : ["11:46",47.46], "magnitude" : 3},
-                    { "name" : "Ursa Major - Psi", "pos" : ["11:09",44.29], "magnitude" : 3},
-                    { "name" : "Ursa Major - Omega", "pos" : ["10:53",43.11], "magnitude" : 4}
-                ],
-                "line" : [[0,1],[0,3],[1,2],[2,3],[3,4],[4,5],[5,6],[7,9],[8,9],[10,11],[0,18],[18,19],[7,19],[1,19],[18,14],[19,14],[21,2],[22,21],[22,11],[12,13],[12,21]]
-            }
-        ];
+	setup : function(data){
 
         // 오브젝트 초기화
         globe.init(150);
+
+        this.data = data;
 
         for(var i = 0; i < this.data.length; ++i){
             this.asterisms[i] = new asterism(this.data[i]);
@@ -124,8 +81,11 @@ var WebGL = {
         this.colorBuffer.itemSize = 4;
         this.colorBuffer.numItems = 5;
 
-        this.glContext.clearColor(0.1, 0.1, 0.1, 1.0);
         this.glContext.enable(this.glContext.DEPTH_TEST);
+
+        this.rotGlobe = this.locateGradient;
+
+        this.setBG(0);
 
 	},
 	drawScene : function(){
@@ -141,12 +101,7 @@ var WebGL = {
 
         // camera setting
         // 위치 경도,위도 기반으로 카메라 회전축 설정 
-        var r = Math.cos(degToRad(WebGL.locateLatitude));
-        var x = r * Math.cos(degToRad(WebGL.locateGradient));
-        var y = Math.sin(degToRad(WebGL.locateLatitude));
-        var z = r * Math.sin(degToRad(WebGL.locateGradient));
-
-        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, 0.0]);
+        mat4.translate(WebGL.mvMatrix, [0.0, 0.0, -20.0]);
         mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotX), [1.0, 0.0, 0.0]);
         mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotY), [0.0, 1.0, 0.0]);
 
@@ -162,9 +117,10 @@ var WebGL = {
 
 
         // rotate globe
-        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.locateLatitude), [1.0, 0.0, 0.0]);
+        mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.locateLatitude - 90), [1.0, 0.0, 0.0]);
         mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotGlobe), [0.0, 1.0, 0.0]);
-        globe.draw();
+
+        globe.draw(WebGL.bgcolor);
 
 
         // 3D->2D좌표로 변경
@@ -188,18 +144,18 @@ var WebGL = {
         // TODO ㅠㅠ
     },
     mouseDrag : function(dx, dy){
-        WebGL.rotX -= dy * 0.01;
+        WebGL.rotX -= dy / WebGL.glContext.viewportHeight * 3;
 
         if(WebGL.rotX < -90) WebGL.rotX = -90;
         if(WebGL.rotX > 20) WebGL.rotX = 20;
 
-        WebGL.rotY -= dx * 0.01;
+        WebGL.rotY -= dx / WebGL.glContext.viewportWidth * 3;
 
         this.drawScene();
     },
     setWindow : function(){
-        var windowWidth = $(document).width();
-        var windowHeight = $(document).height();
+        var windowWidth = $(window).width();
+        var windowHeight = $(window).height();
 
         WebGL.glCanvas.attr("width",windowWidth);
         WebGL.glCanvas.attr("height",windowHeight);
@@ -210,7 +166,6 @@ var WebGL = {
         WebGL.glContext.viewportWidth = windowWidth;
         WebGL.glContext.viewportHeight = windowHeight;
 
-        
         WebGL.glContext.viewport(0, 0, windowWidth, windowHeight);
 
     },
@@ -283,6 +238,41 @@ var WebGL = {
             throw "Invalid popMatrix!";
         }
         this.mvMatrix = this.mvMatrixStack.pop();
+    },
+    setBG : function(percent){
+        var colorNight = [0.06, 0.08, 0.12, 1.0];
+        var colorDay = [0.7, 0.85, 0.98, 1.0];
+
+        if(percent < 0) percent = 0;
+        if(percent > 1) percent = 1;
+
+
+        for(var i = 0; i < 3; ++i){
+            this.bgcolor[i] = colorNight[i] + (colorDay[i]-colorNight[i]) * percent;
+        }
+        this.bgcolor[3] = 1.0;
+
+        this.glContext.clearColor(this.bgcolor[0], this.bgcolor[1], this.bgcolor[2], this.bgcolor[3]);
+    },
+    setColor : function(color, vertex, add){
+        var colorBuffer = WebGL.glContext.createBuffer();;
+        var data = [];
+        var colorData = color.slice();
+
+        if(add){
+            // 함수 인자로 들어오는 배열은 복사되지 않고 대상을 참조함!
+            colorData[0] += add;
+            colorData[1] += add;
+            colorData[2] += add;
+        }
+
+        for(var i = 0; i < 72; ++i){
+            data = data.concat(colorData);
+        }
+
+        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, colorBuffer);
+        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(data), WebGL.glContext.STATIC_DRAW);
+        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, 4, WebGL.glContext.FLOAT, false, 0, 0);
     }
 }
 
@@ -291,28 +281,29 @@ var Planetarium = {
     timeout : null,
     drag : { isDrag : false, _x : 0, _y : 0},
 	init : function(){
-        $(document).on("mousedown", function(e){
-            Planetarium.drag.isDrag = true;
-            Planetarium.drag._x = e.pageX;
-            Planetarium.drag._y = e.pageY;
-        });
+        $.getJSON( "asset/stellar.json", function(data){
+                $(document).on("mousedown", function(e){
+                    Planetarium.drag.isDrag = true;
+                    Planetarium.drag._x = e.pageX;
+                    Planetarium.drag._y = e.pageY;
+                });
 
-        $(document).on("mouseup", function(e){
-            Planetarium.drag.isDrag = false;
+                $(document).on("mouseup", function(e){
+                    Planetarium.drag.isDrag = false;
+                })
+
+                $(document).on("mousemove", function(e){
+                    if(Planetarium.drag.isDrag){
+                        WebGL.mouseDrag(e.pageX-Planetarium.drag._x, e.pageY-Planetarium.drag._y);
+                    }
+                })
+
+                $(window).on("resize", WebGL.setWindow);
+
+                WebGL.start(data);
+                Planetarium.time = new Date();
+                Planetarium.runTime();
         })
-
-        $(document).on("mousemove", function(e){
-            if(Planetarium.drag.isDrag){
-                WebGL.mouseDrag(e.pageX-Planetarium.drag._x, e.pageY-Planetarium.drag._y);
-            }
-        })
-
-        $(window).on("resize", WebGL.setWindow);
-
-		WebGL.start();
-
-        this.time = new Date();
-        this.runTime();
 	},
     runTime : function(option){
 
@@ -324,7 +315,7 @@ var Planetarium = {
                 Planetarium.time.setMinutes(Planetarium.time.getMinutes()-2);
                 break;
             case "back-slow" :
-                Planetarium.timeout = setTimeout(Planetarium.runTime,16,option);
+                Planetarium.timeout = setTimeout(Planetarium.runTime,32,option);
                 Planetarium.time.setMinutes(Planetarium.time.getMinutes()-1);
                 break;
             case "basic" : 
@@ -332,7 +323,7 @@ var Planetarium = {
                 Planetarium.time.setSeconds(Planetarium.time.getSeconds()+1);
                 break;
             case "forward-slow" :
-                Planetarium.timeout = setTimeout(Planetarium.runTime,16,option);
+                Planetarium.timeout = setTimeout(Planetarium.runTime,32,option);
                 Planetarium.time.setMinutes(Planetarium.time.getMinutes()+1);
                 break;
             case "forward-fast" :
@@ -352,15 +343,31 @@ var Planetarium = {
     setTime : function(){
         var timeText;
         var ampm;
+        var hour = this.time.getHours();
+        var minute = this.time.getMinutes();
 
-        timeText = digit(this.time.getHours() % 12, 2) + ":";
-        timeText += digit(this.time.getMinutes(), 2) + ":";
+        timeText = digit(hour % 12, 2) + ":";
+        timeText += digit(minute, 2) + ":";
         timeText += digit(this.time.getSeconds(), 2);
 
         ampm = (this.time.getHours() >= 12)?"PM":"AM";
 
         $("#am-pm").text(ampm);
         $("#time-num").text(timeText);
+
+        if(hour == 4){
+            var percent = minute/60;
+            WebGL.setBG(percent);
+        }
+        if(hour == 18){
+            var percent = (60-minute)/60;
+            WebGL.setBG(percent);
+        }
+        if(hour < 4 || hour > 18){
+            WebGL.setBG(0);
+        }else if(hour > 4 && hour < 18){
+            WebGL.setBG(1);
+        }
 
         WebGL.rotateGlobe((this.time.getHours() * 60 + this.time.getMinutes())/4);
     }
@@ -369,52 +376,28 @@ var Planetarium = {
 // 3D 오브젝트 프로토타입
 var globe = {
     lineBuffer : null,
-    earthColorBuffer : null,
-    colorBufferRed : null,
-    colorBufferWhite : null,
     radius : null,
-    init : function(radius){
+    color : [1.0, 1.0, 1.0, 1.0],
+    init : function(radius, color){
         this.radius = radius;
         this.lineBuffer = circle(this.radius, 72);
-
-        var color = [];
-        for(var i = 0; i < 72; ++i){
-            color = color.concat([0.3, 0.3, 0.0, 1.0]);
-        }
-        this.colorBufferRed = WebGL.glContext.createBuffer();
-        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBufferRed);
-        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(color), WebGL.glContext.STATIC_DRAW);
-        this.colorBufferRed.itemSize = 4;
-        this.colorBufferRed.numItems = 72;
-
-        color = [];
-        for(var i = 0; i < 72; ++i){
-            color = color.concat([0.3, 0.3, 0.3, 1.0]);
-        }
-        this.colorBufferWhite = WebGL.glContext.createBuffer();
-        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBufferWhite);
-        WebGL.glContext.bufferData(WebGL.glContext.ARRAY_BUFFER, new Float32Array(color), WebGL.glContext.STATIC_DRAW);
-        this.colorBufferWhite.itemSize = 4;
-        this.colorBufferWhite.numItems = 72;
-
     },
-    draw : function(){
-
+    draw : function(color){
         WebGL.mvPushMatrix();
-        var colorBuffer;
 
         for(var i = 0; i < 12; ++i){
 
             mat4.rotate(WebGL.mvMatrix, degToRad(15), [0.0, 1.0, 0.0]);
 
-            colorBuffer = (i == 11)? this.colorBufferRed : this.colorBufferWhite ;
+            if(i == 11){
+                WebGL.setColor(color,72,0.3);
+            }else{
+                WebGL.setColor(color,72,0.1);
+            }
 
             WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
             WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
             
-            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, colorBuffer);
-            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
-                
             WebGL.setMatrixUniforms();
             WebGL.glContext.drawArrays(WebGL.glContext.LINE_LOOP, 0, this.lineBuffer.numItems);
         }
@@ -431,14 +414,15 @@ var globe = {
 
             mat4.scale(WebGL.mvMatrix, [Math.cos(degToRad(10*i)),Math.cos(degToRad(10*i)),1.0])
             
-            colorBuffer = (i == 0)? this.colorBufferRed : this.colorBufferWhite;
+            if(i == 0){
+                WebGL.setColor(color,72,0.3);
+            }else{
+                WebGL.setColor(color,72,0.1);
+            }
 
             WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
             WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
             
-            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, colorBuffer);
-            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);
-
             WebGL.setMatrixUniforms();
             WebGL.glContext.drawArrays(WebGL.glContext.LINE_LOOP, 0, this.lineBuffer.numItems);
 
@@ -459,6 +443,7 @@ function asterism(data){
     this.globeRadius; 
     this.pointColorBuffer;
     this.colorBuffer;
+    this.viewLine = false;
 }
 asterism.prototype = {
     init : function(globeRadius){
@@ -519,16 +504,19 @@ asterism.prototype = {
     },
     draw : function(){
 
-        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBuffer);
-        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);    
+        if(this.viewLine){
+            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.colorBuffer);
+            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);    
 
-        WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
-        WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);    
+            WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.lineBuffer);
+            WebGL.glContext.vertexAttribPointer(WebGL.shaderProgram.vertexPositionAttribute, this.lineBuffer.itemSize, WebGL.glContext.FLOAT, false, 0, 0);    
 
-        for(var i = 0; i < this.lineElement.length; ++i){  
-            WebGL.glContext.bindBuffer(WebGL.glContext.ELEMENT_ARRAY_BUFFER, this.lineElement[i]);
-            WebGL.setMatrixUniforms();
-            WebGL.glContext.drawElements(WebGL.glContext.LINE_STRIP, this.lineElement[i].numItems, WebGL.glContext.UNSIGNED_SHORT, 0);
+            for(var i = 0; i < this.lineElement.length; ++i){  
+                WebGL.glContext.bindBuffer(WebGL.glContext.ELEMENT_ARRAY_BUFFER, this.lineElement[i]);
+                WebGL.setMatrixUniforms();
+                WebGL.glContext.drawElements(WebGL.glContext.LINE_STRIP, this.lineElement[i].numItems, WebGL.glContext.UNSIGNED_SHORT, 0);
+            }
+
         }
 
         WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.pointColorBuffer);
