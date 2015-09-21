@@ -115,7 +115,6 @@ var WebGL = {
         WebGL.setMatrixUniforms();
         WebGL.glContext.drawArrays(WebGL.glContext.TRIANGLE_FAN, 0, WebGL.earthBuffer.numItems);
 
-
         // rotate globe
         mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.locateLatitude - 90), [1.0, 0.0, 0.0]);
         mat4.rotate(WebGL.mvMatrix, degToRad(WebGL.rotGlobe), [0.0, 1.0, 0.0]);
@@ -450,12 +449,18 @@ asterism.prototype = {
         var vertices = [];
         for(var i = 0; i < this.stars.length; ++i){
             var star = this.stars[i];
-            this.pointBufferArray[i] = circle(1.0/star.magnitude, 12);
+            var mag = (star["visMag"] < 0.8)? 0.8 : star["visMag"];
+            this.pointBufferArray[i] = circle(1.0/mag, 12);
 
-            var ascensionTime = star.pos[0].split(":");
-            var ascension = (parseInt(ascensionTime[0])*60 + parseInt(ascensionTime[1]))/4
-            var declination = star.pos[1];
-            star.pos[0] = ascension;
+            var RA = /(\d*)h (\d*)m ([\d\.]*)s/.exec(star["ra"]);
+            var RAHour = RA[1];
+            var RAMinute = RA[2];
+            var Dec = /([\-\d]*)° (\d*)′/.exec(star["dec"]);
+
+            var ascension = (parseInt(RAHour)*60 + parseInt(RAMinute))/4
+            var declination = parseInt(Dec[1]);
+            star["ra"] = ascension;
+            star["dec"] = declination;
 
             var r = globeRadius * Math.cos(degToRad(declination));
             var x = r * Math.cos(degToRad(360 - ascension));
@@ -526,8 +531,9 @@ asterism.prototype = {
             var star = this.stars[i];
 
             WebGL.mvPushMatrix();
-            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[0] - 90), [0.0, 1.0, 0.0]);
-            mat4.rotate(WebGL.mvMatrix, degToRad(star.pos[1]), [1.0, 0.0, 0.0]);
+            mat4.rotate(WebGL.mvMatrix, degToRad(star["ra"] - 90), [0.0, 1.0, 0.0]);
+            mat4.rotate(WebGL.mvMatrix, degToRad(star["dec"]), [1.0, 0.0, 0.0]);
+
             mat4.translate(WebGL.mvMatrix, [0.0, 0.0, - this.globeRadius + 0.1]);
 
             WebGL.glContext.bindBuffer(WebGL.glContext.ARRAY_BUFFER, this.pointBufferArray[i]);
@@ -538,11 +544,8 @@ asterism.prototype = {
 
 
             if(i == 0){
-                //mat4.translate(WebGL.tMatrix, [50.0, 20.0, 0.0]);
                 mat4.multiply(WebGL.tMatrix, WebGL.pMatrix);
                 mat4.multiply(WebGL.tMatrix, WebGL.mvMatrix);
-
-                //console.log(WebGL.tMatrix[0],WebGL.tMatrix[5]);
             }
 
             WebGL.mvPopMatrix();
